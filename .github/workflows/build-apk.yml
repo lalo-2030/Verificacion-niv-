@@ -13,31 +13,113 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Extract Project Files
+        run: |
+          unzip -o *.zip
+          # Buscar archivos clave
+          HTML_PATH=$(find . -name "index.html" | head -n 1)
+          JAVA_PATH=$(find . -name "MainActivity.java" | head -n 1)
+          
+          mkdir -p /tmp/assets /tmp/java
+          cp "$HTML_PATH" /tmp/assets/index.html
+          cp "$JAVA_PATH" /tmp/java/MainActivity.java
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Extract ZIP structure
+      - name: Setup Android Project Template
         run: |
-          unzip -o *.zip
-          # Encuentra el directorio real donde está build.gradle
-          TARGET_DIR=$(dirname $(find . -maxdepth 3 -name "build.gradle" | head -n 1))
-          echo "PROJECT_DIR=$TARGET_DIR" >> $GITHUB_ENV
+          mkdir -p clean_app/app/src/main/assets
+          mkdir -p clean_app/app/src/main/java/com/sicniv/app
+          mkdir -p clean_app/app/src/main/res/values
+
+          # AndroidManifest
+          cat << 'EOF' > clean_app/app/src/main/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <application
+                  android:allowBackup="true"
+                  android:label="Verificador NIV"
+                  android:supportsRtl="true"
+                  android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+                  <activity android:name="com.sicniv.app.MainActivity" android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:category="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          # styles.xml
+          cat << 'EOF' > clean_app/app/src/main/res/values/styles.xml
+          <resources>
+              <style name="Theme.AppCompat.Light.NoActionBar" parent="Theme.AppCompat.Light.NoActionBar"/>
+          </resources>
+          EOF
+
+          # build.gradle (Root)
+          cat << 'EOF' > clean_app/build.gradle
+          buildscript {
+              repositories { google(); mavenCentral() }
+              dependencies { classpath 'com.android.tools.build:gradle:8.1.1' }
+          }
+          allprojects { repositories { google(); mavenCentral() } }
+          EOF
+
+          # settings.gradle
+          cat << 'EOF' > clean_app/settings.gradle
+          rootProject.name = "VerificadorNIV"
+          include ':app'
+          EOF
+
+          # app/build.gradle
+          cat << 'EOF' > clean_app/app/build.gradle
+          apply plugin: 'com.android.application'
+
+          android {
+              namespace 'com.sicniv.app'
+              compileSdk 33
+              defaultConfig {
+                  applicationId "com.sicniv.app"
+                  minSdk 24
+                  targetSdk 33
+                  versionCode 1
+                  versionName "1.0"
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+              implementation 'com.google.android.material:material:1.9.0'
+          }
+          EOF
+
+          # Copiar assets y código original
+          cp /tmp/assets/index.html clean_app/app/src/main/assets/
+          cp /tmp/java/MainActivity.java clean_app/app/src/main/java/com/sicniv/app/
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
       - name: Build Debug APK
         run: |
-          cd ${{ env.PROJECT_DIR }}
-          gradle assembleDebug --no-daemon
+          cd clean_app
+          gradle wrapper
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: verificador-niv-app-debug
-          path: '**/build/outputs/apk/debug/*.apk'
-          if-no-files-found: error
+          path: clean_app/app/build/outputs/apk/debug/*.apk
           
