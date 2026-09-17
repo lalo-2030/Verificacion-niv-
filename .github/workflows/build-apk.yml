@@ -31,14 +31,13 @@ jobs:
 
       - name: Generate Clean Android Project
         run: |
-          # Limpiar archivos previos
           rm -f build.gradle settings.gradle gradlew
-          rm -rf app
+          rm -rf app gradle
 
-          # Crear estructura
           mkdir -p app/src/main/assets
           mkdir -p app/src/main/java/com/sicniv/app
           mkdir -p app/src/main/res/values
+          mkdir -p gradle/wrapper
 
           # AndroidManifest.xml
           cat << 'EOF' > app/src/main/AndroidManifest.xml
@@ -77,7 +76,7 @@ jobs:
           cat << 'EOF' > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
-              dependencies { classpath 'com.android.tools.build:gradle:8.1.1' }
+              dependencies { classpath 'com.android.tools.build:gradle:8.0.2' }
           }
           allprojects { repositories { google(); mavenCentral() } }
           EOF
@@ -107,14 +106,22 @@ jobs:
           }
           EOF
 
-          # Copiar archivos del usuario
+          # gradle-wrapper.properties
+          cat << 'EOF' > gradle/wrapper/gradle-wrapper.properties
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.0-bin.zip
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          EOF
+
+          # Copiar archivos fuente del usuario
           [ -f /tmp/extracted_assets/index.html ] && cp /tmp/extracted_assets/index.html app/src/main/assets/ || true
           [ -f /tmp/extracted_java/MainActivity.java ] && cp /tmp/extracted_java/MainActivity.java app/src/main/java/com/sicniv/app/ || true
 
-      - name: Install and Setup Gradle Wrapper
+      - name: Setup Gradle Executable
         run: |
-          sudo apt-get update && sudo apt-get install -y gradle
-          gradle wrapper --gradle-version 8.1.1
+          curl -sS -L -o gradlew https://raw.githubusercontent.com/gradle/gradle/master/gradlew
           chmod +x gradlew
 
       - name: Build Debug APK
