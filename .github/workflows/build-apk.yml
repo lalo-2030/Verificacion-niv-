@@ -31,11 +31,11 @@ jobs:
 
       - name: Generate Clean Android Structure
         run: |
-          # Limpiar raíz para evitar conflictos con archivos del ZIP
+          # Limpiar archivos viejos
           rm -f build.gradle settings.gradle gradlew
           rm -rf app
 
-          # Crear estructura estándar de Android
+          # Crear estructura
           mkdir -p app/src/main/assets
           mkdir -p app/src/main/java/com/sicniv/app
           mkdir -p app/src/main/res/values
@@ -108,18 +108,20 @@ jobs:
           }
           EOF
 
-          # Mover los archivos extraídos al proyecto limpio
+          # Copiar archivos fuente del usuario
           [ -f /tmp/extracted_assets/index.html ] && cp /tmp/extracted_assets/index.html app/src/main/assets/ || true
           [ -f /tmp/extracted_java/MainActivity.java ] && cp /tmp/extracted_java/MainActivity.java app/src/main/java/com/sicniv/app/ || true
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.1.1'
+
       - name: Build Debug APK
-        run: |
-          gradle wrapper
-          ./gradlew assembleDebug --no-daemon
+        run: gradle assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: verificador-niv-app-debug
           path: app/build/outputs/apk/debug/*.apk
-          
