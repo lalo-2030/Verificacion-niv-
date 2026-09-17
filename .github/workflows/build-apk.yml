@@ -13,7 +13,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Extract Project Assets and Source
+      - name: Extract Project Files
         run: |
           unzip -o *.zip
           HTML_PATH=$(find . -name "index.html" | head -n 1)
@@ -23,15 +23,15 @@ jobs:
           [ -n "$HTML_PATH" ] && cp "$HTML_PATH" /tmp/extracted_assets/index.html || true
           [ -n "$JAVA_PATH" ] && cp "$JAVA_PATH" /tmp/extracted_java/MainActivity.java || true
 
-      - name: Set up JDK 17
+      - name: Set up JDK 11
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '11'
           distribution: 'temurin'
 
-      - name: Generate Clean Android Structure
+      - name: Generate Clean Android Project
         run: |
-          # Limpiar archivos viejos
+          # Limpiar raíz
           rm -f build.gradle settings.gradle gradlew
           rm -rf app
 
@@ -40,16 +40,16 @@ jobs:
           mkdir -p app/src/main/java/com/sicniv/app
           mkdir -p app/src/main/res/values
 
-          # Manifest
+          # AndroidManifest.xml
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.sicniv.app">
               <uses-permission android:name="android.permission.INTERNET" />
               <application
                   android:allowBackup="true"
                   android:label="Verificador NIV"
                   android:supportsRtl="true"
-                  android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+                  android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
                   <activity android:name="com.sicniv.app.MainActivity" android:exported="true">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
@@ -60,16 +60,8 @@ jobs:
           </manifest>
           EOF
 
-          # styles.xml
-          cat << 'EOF' > app/src/main/res/values/styles.xml
-          <resources>
-              <style name="Theme.AppCompat.Light.NoActionBar" parent="Theme.AppCompat.Light.NoActionBar"/>
-          </resources>
-          EOF
-
           # settings.gradle
           cat << 'EOF' > settings.gradle
-          rootProject.name = "VerificadorNIV"
           include ':app'
           EOF
 
@@ -77,7 +69,7 @@ jobs:
           cat << 'EOF' > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
-              dependencies { classpath 'com.android.tools.build:gradle:8.1.1' }
+              dependencies { classpath 'com.android.tools.build:gradle:7.4.2' }
           }
           allprojects { repositories { google(); mavenCentral() } }
           EOF
@@ -87,24 +79,22 @@ jobs:
           apply plugin: 'com.android.application'
 
           android {
-              namespace 'com.sicniv.app'
-              compileSdk 33
+              compileSdkVersion 33
               defaultConfig {
                   applicationId "com.sicniv.app"
-                  minSdk 24
-                  targetSdk 33
+                  minSdkVersion 24
+                  targetSdkVersion 33
                   versionCode 1
                   versionName "1.0"
               }
               compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_17
-                  targetCompatibility JavaVersion.VERSION_17
+                  sourceCompatibility JavaVersion.VERSION_11
+                  targetCompatibility JavaVersion.VERSION_11
               }
           }
 
           dependencies {
               implementation 'androidx.appcompat:appcompat:1.6.1'
-              implementation 'com.google.android.material:material:1.9.0'
           }
           EOF
 
@@ -115,7 +105,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
-          gradle-version: '8.1.1'
+          gradle-version: '7.5'
 
       - name: Build Debug APK
         run: gradle assembleDebug --no-daemon
@@ -125,3 +115,4 @@ jobs:
         with:
           name: verificador-niv-app-debug
           path: app/build/outputs/apk/debug/*.apk
+          
