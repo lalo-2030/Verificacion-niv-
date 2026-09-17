@@ -23,15 +23,15 @@ jobs:
           [ -n "$HTML_PATH" ] && cp "$HTML_PATH" /tmp/extracted_assets/index.html || true
           [ -n "$JAVA_PATH" ] && cp "$JAVA_PATH" /tmp/extracted_java/MainActivity.java || true
 
-      - name: Set up JDK 11
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: '11'
+          java-version: '17'
           distribution: 'temurin'
 
       - name: Generate Clean Android Project
         run: |
-          # Limpiar raíz
+          # Limpiar archivos previos
           rm -f build.gradle settings.gradle gradlew
           rm -rf app
 
@@ -43,13 +43,13 @@ jobs:
           # AndroidManifest.xml
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.sicniv.app">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET" />
               <application
                   android:allowBackup="true"
                   android:label="Verificador NIV"
                   android:supportsRtl="true"
-                  android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+                  android:theme="@style/Theme.AppCompat.Light.NoActionBar">
                   <activity android:name="com.sicniv.app.MainActivity" android:exported="true">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
@@ -60,8 +60,16 @@ jobs:
           </manifest>
           EOF
 
+          # styles.xml
+          cat << 'EOF' > app/src/main/res/values/styles.xml
+          <resources>
+              <style name="Theme.AppCompat.Light.NoActionBar" parent="Theme.AppCompat.Light.NoActionBar"/>
+          </resources>
+          EOF
+
           # settings.gradle
           cat << 'EOF' > settings.gradle
+          rootProject.name = "VerificadorNIV"
           include ':app'
           EOF
 
@@ -69,7 +77,7 @@ jobs:
           cat << 'EOF' > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
-              dependencies { classpath 'com.android.tools.build:gradle:7.4.2' }
+              dependencies { classpath 'com.android.tools.build:gradle:8.1.1' }
           }
           allprojects { repositories { google(); mavenCentral() } }
           EOF
@@ -79,17 +87,18 @@ jobs:
           apply plugin: 'com.android.application'
 
           android {
-              compileSdkVersion 33
+              namespace 'com.sicniv.app'
+              compileSdk 33
               defaultConfig {
                   applicationId "com.sicniv.app"
-                  minSdkVersion 24
-                  targetSdkVersion 33
+                  minSdk 24
+                  targetSdk 33
                   versionCode 1
                   versionName "1.0"
               }
               compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_11
-                  targetCompatibility JavaVersion.VERSION_11
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
               }
           }
 
@@ -98,17 +107,18 @@ jobs:
           }
           EOF
 
-          # Copiar archivos fuente del usuario
+          # Copiar archivos del usuario
           [ -f /tmp/extracted_assets/index.html ] && cp /tmp/extracted_assets/index.html app/src/main/assets/ || true
           [ -f /tmp/extracted_java/MainActivity.java ] && cp /tmp/extracted_java/MainActivity.java app/src/main/java/com/sicniv/app/ || true
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '7.5'
+      - name: Install and Setup Gradle Wrapper
+        run: |
+          sudo apt-get update && sudo apt-get install -y gradle
+          gradle wrapper --gradle-version 8.1.1
+          chmod +x gradlew
 
       - name: Build Debug APK
-        run: gradle assembleDebug --no-daemon
+        run: ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
