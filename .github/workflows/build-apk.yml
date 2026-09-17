@@ -13,16 +13,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Extract Project Files
+      - name: Extract Project Assets and Source
         run: |
           unzip -o *.zip
-          # Buscar archivos clave
           HTML_PATH=$(find . -name "index.html" | head -n 1)
           JAVA_PATH=$(find . -name "MainActivity.java" | head -n 1)
           
-          mkdir -p /tmp/assets /tmp/java
-          cp "$HTML_PATH" /tmp/assets/index.html
-          cp "$JAVA_PATH" /tmp/java/MainActivity.java
+          mkdir -p /tmp/extracted_assets /tmp/extracted_java
+          [ -n "$HTML_PATH" ] && cp "$HTML_PATH" /tmp/extracted_assets/index.html || true
+          [ -n "$JAVA_PATH" ] && cp "$JAVA_PATH" /tmp/extracted_java/MainActivity.java || true
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -30,14 +29,19 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Android Project Template
+      - name: Generate Clean Android Structure
         run: |
-          mkdir -p clean_app/app/src/main/assets
-          mkdir -p clean_app/app/src/main/java/com/sicniv/app
-          mkdir -p clean_app/app/src/main/res/values
+          # Limpiar raíz para evitar conflictos con archivos del ZIP
+          rm -f build.gradle settings.gradle gradlew
+          rm -rf app
 
-          # AndroidManifest
-          cat << 'EOF' > clean_app/app/src/main/AndroidManifest.xml
+          # Crear estructura estándar de Android
+          mkdir -p app/src/main/assets
+          mkdir -p app/src/main/java/com/sicniv/app
+          mkdir -p app/src/main/res/values
+
+          # Manifest
+          cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET" />
@@ -57,14 +61,20 @@ jobs:
           EOF
 
           # styles.xml
-          cat << 'EOF' > clean_app/app/src/main/res/values/styles.xml
+          cat << 'EOF' > app/src/main/res/values/styles.xml
           <resources>
               <style name="Theme.AppCompat.Light.NoActionBar" parent="Theme.AppCompat.Light.NoActionBar"/>
           </resources>
           EOF
 
-          # build.gradle (Root)
-          cat << 'EOF' > clean_app/build.gradle
+          # settings.gradle
+          cat << 'EOF' > settings.gradle
+          rootProject.name = "VerificadorNIV"
+          include ':app'
+          EOF
+
+          # Root build.gradle
+          cat << 'EOF' > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
               dependencies { classpath 'com.android.tools.build:gradle:8.1.1' }
@@ -72,14 +82,8 @@ jobs:
           allprojects { repositories { google(); mavenCentral() } }
           EOF
 
-          # settings.gradle
-          cat << 'EOF' > clean_app/settings.gradle
-          rootProject.name = "VerificadorNIV"
-          include ':app'
-          EOF
-
           # app/build.gradle
-          cat << 'EOF' > clean_app/app/build.gradle
+          cat << 'EOF' > app/build.gradle
           apply plugin: 'com.android.application'
 
           android {
@@ -104,16 +108,12 @@ jobs:
           }
           EOF
 
-          # Copiar assets y código original
-          cp /tmp/assets/index.html clean_app/app/src/main/assets/
-          cp /tmp/java/MainActivity.java clean_app/app/src/main/java/com/sicniv/app/
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+          # Mover los archivos extraídos al proyecto limpio
+          [ -f /tmp/extracted_assets/index.html ] && cp /tmp/extracted_assets/index.html app/src/main/assets/ || true
+          [ -f /tmp/extracted_java/MainActivity.java ] && cp /tmp/extracted_java/MainActivity.java app/src/main/java/com/sicniv/app/ || true
 
       - name: Build Debug APK
         run: |
-          cd clean_app
           gradle wrapper
           ./gradlew assembleDebug --no-daemon
 
@@ -121,5 +121,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: verificador-niv-app-debug
-          path: clean_app/app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/debug/*.apk
           
