@@ -16,23 +16,27 @@ jobs:
       - name: Extract ZIP structure
         run: |
           unzip -o *.zip
+          # Mueve los archivos si están dentro de la subcarpeta extraída
           if [ -d "SIC-NIV-STITCH-ANDROID-PROYECTO" ]; then
-            cp -rn SIC-NIV-STITCH-ANDROID-PROYECTO/* . || true
+            shopt -s dotglob
+            mv SIC-NIV-STITCH-ANDROID-PROYECTO/* . || true
           fi
 
-      - name: Set up JDK 11
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: '11'
+          java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '7.5'
+      - name: Install Gradle Wrapper if missing
+        run: |
+          if [ ! -f ./gradlew ]; then
+            gradle wrapper
+          fi
+          chmod +x ./gradlew
 
       - name: Build Debug APK
-        run: gradle assembleDebug --no-daemon
+        run: ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
